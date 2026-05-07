@@ -1,0 +1,10 @@
+// markdownlint-cli2 configuration for MarkdownEditorKit
+// Agent prompts under .claude/ follow their own conventions and are excluded.
+{
+  "ignores": [
+    ".claude/**",
+    ".build/**",
+    ".git/**",
+    "node_modules/**"
+  ]
+}
