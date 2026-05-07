@@ -1,10 +1,13 @@
+import Markdown
 import SwiftUI
 
-/// Renders a markdown string with proper block-level structure: headings, paragraphs, and fenced code blocks.
+/// Renders a markdown string with full block-level structure: headings, paragraphs,
+/// fenced code blocks, block quotes, ordered and unordered lists (including GFM task
+/// lists), tables, and thematic breaks.
 ///
-/// `AttributedString(markdown:)` + `Text` collapses block structure, so blocks are parsed and
-/// laid out manually. Inline formatting (bold, italic, code spans, links) is handled by
-/// `AttributedString` on a per-block basis.
+/// Inline formatting (bold, italic, strikethrough, inline code, links) is handled
+/// by `AttributedString` on a per-block basis via ``InlineAttributedStringBuilder``.
+/// Swift code blocks are syntax-highlighted with Splash.
 public struct MarkdownPreviewView: View {
     /// The raw markdown source to render.
     public let markdown: String
@@ -15,100 +18,68 @@ public struct MarkdownPreviewView: View {
     }
 
     public var body: some View {
+        PreviewBlockListView(blocks: MarkdownDocumentParser.parse(markdown))
+    }
+}
+
+/// Renders an ordered sequence of ``PreviewBlock`` values as a `VStack`.
+struct PreviewBlockListView: View {
+    let blocks: [PreviewBlock]
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
-                blockView(block)
+                PreviewBlockView(block: block)
             }
         }
     }
+}
 
-    private enum Block {
-        case heading(level: Int, text: String)
-        case code(language: String?, lines: [String])
-        case paragraph(text: String)
-    }
+/// Renders a single ``PreviewBlock``.
+struct PreviewBlockView: View {
+    let block: PreviewBlock
 
-    private var blocks: [Block] {
-        var result: [Block] = []
-        let lines = markdown.components(separatedBy: "\n")
-        var i = 0
-        var paragraphLines: [String] = []
-
-        func flushParagraph() {
-            let text = paragraphLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-            if !text.isEmpty {
-                result.append(.paragraph(text: text))
-            }
-            paragraphLines = []
-        }
-
-        while i < lines.count {
-            let line = lines[i]
-
-            // Fenced code block
-            if line.hasPrefix("```") {
-                flushParagraph()
-                let lang = String(line.dropFirst(3)).trimmingCharacters(in: .whitespaces)
-                var codeLines: [String] = []
-                i += 1
-                while i < lines.count && !lines[i].hasPrefix("```") {
-                    codeLines.append(lines[i])
-                    i += 1
-                }
-                result.append(.code(language: lang.isEmpty ? nil : lang, lines: codeLines))
-                i += 1  // skip closing ```
-                continue
-            }
-
-            // ATX heading
-            if let headingMatch = line.headingLevel() {
-                flushParagraph()
-                result.append(.heading(level: headingMatch.level, text: headingMatch.text))
-                i += 1
-                continue
-            }
-
-            // Blank line ends a paragraph
-            if line.trimmingCharacters(in: .whitespaces).isEmpty {
-                flushParagraph()
-                i += 1
-                continue
-            }
-
-            paragraphLines.append(line)
-            i += 1
-        }
-
-        flushParagraph()
-        return result
-    }
-
-    @ViewBuilder
-    private func blockView(_ block: Block) -> some View {
+    var body: some View {
         switch block {
-        case .heading(let level, let text):
-            Text(markdownInline(text))
+        case .heading(let level, let inline):
+            Text(inline)
                 .font(headingFont(level))
                 .fontWeight(.bold)
 
-        case .code(_, let lines):
-            Text(lines.joined(separator: "\n"))
-                .font(.system(.body, design: .monospaced))
+        case .paragraph(let inline):
+            Text(inline)
+                .font(.body)
+
+        case .codeBlock(let language, let source):
+            Text(SplashCodeHighlighter.highlight(source, language: language))
                 .padding(8)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(.quaternary)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
 
-        case .paragraph(let text):
-            Text(markdownInline(text))
-                .font(.body)
-        }
-    }
+        case .blockquote(let children):
+            PreviewBlockquoteView(children: children)
 
-    /// Parses inline markdown (bold, italic, code spans, links) via `AttributedString`.
-    private func markdownInline(_ text: String) -> AttributedString {
-        (try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
-            ?? AttributedString(text)
+        case .unorderedList(let items):
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                    PreviewListItemView(item: item, marker: "•")
+                }
+            }
+
+        case .orderedList(let start, let items):
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                    PreviewListItemView(item: item, marker: "\(start + index).")
+                }
+            }
+
+        case .table(let table):
+            PreviewTableView(table: table)
+
+        case .thematicBreak:
+            Divider()
+        }
     }
 
     private func headingFont(_ level: Int) -> Font {
@@ -121,22 +92,77 @@ public struct MarkdownPreviewView: View {
     }
 }
 
-// MARK: - String helpers
+/// Renders a block quote with a leading left-border accent.
+struct PreviewBlockquoteView: View {
+    let children: [PreviewBlock]
 
-extension String {
-    /// Returns the ATX heading level and stripped text, or `nil` if the string is not an ATX heading.
-    func headingLevel() -> (level: Int, text: String)? {
-        var hashes = 0
-        for ch in self {
-            if ch == "#" { hashes += 1 } else { break }
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Rectangle()
+                .fill(Color.secondary)
+                .frame(width: 3)
+                .clipShape(RoundedRectangle(cornerRadius: 1.5))
+            PreviewBlockListView(blocks: children)
         }
-        guard hashes >= 1 && hashes <= 6 else { return nil }
-        guard count > hashes else { return (hashes, "") }
-        let rest = String(dropFirst(hashes))
-        // ATX headings require a space after the #'s (or the line is just #'s)
-        guard rest.first == " " || rest.isEmpty else { return nil }
-        let text = rest.trimmingCharacters(in: .whitespaces)
-        return (hashes, text)
+        .padding(.leading, 4)
+    }
+}
+
+/// Renders a single list item, with optional task-list checkbox.
+struct PreviewListItemView: View {
+    let item: PreviewListItem
+    let marker: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 6) {
+            if let checked = item.taskState {
+                Image(systemName: checked ? "checkmark.square" : "square")
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(marker)
+                    .foregroundStyle(.secondary)
+                    .frame(minWidth: 16, alignment: .trailing)
+            }
+            PreviewBlockListView(blocks: item.children)
+        }
+    }
+}
+
+/// Renders a GFM table using `Grid`.
+struct PreviewTableView: View {
+    let table: PreviewTable
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 4) {
+            GridRow {
+                ForEach(Array(table.headerCells.enumerated()), id: \.offset) { index, cell in
+                    Text(cell)
+                        .fontWeight(.semibold)
+                        .gridColumnAlignment(columnAlignment(index))
+                }
+            }
+            Divider()
+                .gridCellUnsizedAxes(.horizontal)
+            ForEach(Array(table.bodyRows.enumerated()), id: \.offset) { _, row in
+                GridRow {
+                    ForEach(Array(row.enumerated()), id: \.offset) { _, cell in
+                        Text(cell)
+                    }
+                }
+            }
+        }
+        .padding(8)
+        .background(.quaternary)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+
+    private func columnAlignment(_ index: Int) -> HorizontalAlignment {
+        guard index < table.columnAlignments.count else { return .leading }
+        switch table.columnAlignments[index] {
+        case .center: return .center
+        case .right: return .trailing
+        default: return .leading
+        }
     }
 }
 
@@ -152,19 +178,38 @@ extension String {
 
                 #### Heading 4 (headline font)
 
-                A paragraph with **bold**, _italic_, and `inline code`.
+                A paragraph with **bold**, _italic_, ~~strikethrough~~, and `inline code`.
 
                 ```swift
                 struct Foo {
                     var bar: Int
+                    func greet() { print("hello") }
                 }
                 ```
 
+                > A block quote with **bold** inside.
+
+                - First item
+                - Second item
+                - [ ] Unchecked task
+                - [x] Checked task
+
+                1. One
+                2. Two
+                3. Three
+
+                | Name   | Role   |
+                |--------|--------|
+                | Alice  | Admin  |
+                | Bob    | User   |
+
                 Another paragraph with a [link](https://example.com) in it.
+
+                ---
                 """
         )
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
     }
-    .frame(width: 500, height: 600)
+    .frame(width: 500, height: 700)
 }
