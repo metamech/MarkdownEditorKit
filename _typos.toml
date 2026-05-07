@@ -1,0 +1,18 @@
+# Typos configuration for HashtagGitHub.
+# Add exclusions here as false positives surface.
+
+[files]
+extend-exclude = [
+    "*.xcodeproj",
+    "*.xcworkspace",
+]
+
+[default.extend-identifiers]
+
+[default.extend-words]
+# "unparseable" is an accepted alternative spelling of "unparsable".
+unparseable = "unparseable"
+# "writeable" is an accepted alternative spelling of "writable".
+writeable = "writeable"
+# "PN" appears inside "PNG"/"PNGs" (Portable Network Graphic); typos misreads it as "ON".
+PN = "PN"

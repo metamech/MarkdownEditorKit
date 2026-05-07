@@ -1,0 +1,58 @@
+# SwiftLint configuration for MarkdownEditorKit.
+# See: https://realm.github.io/SwiftLint/rule-directory.html
+#
+# Inherited from HashtagGitHub. The disabled-rule set below was calibrated
+# against TT's ~150k-LOC codebase — for MarkdownEditorKit (currently empty) most
+# of these disables may be unnecessary. Re-evaluate each disabled rule the
+# first time it blocks real production code, and trim as we grow.
+#
+# Scope: production Swift sources under Sources/.
+# Test targets are out of lint scope (matches `make lint-prod` convention).
+
+included:
+  - Sources
+
+excluded:
+  - .build
+  - DerivedData
+  - "**/.build"
+  - "**/Resources"
+
+# Thresholds kept for documentation — all corresponding rules are currently
+# disabled below while the codebase is small. Remove the disable entry (not
+# these blocks) when a rule is ready to enforce.
+#
+# line_length:            warning 140 / error 200 (urls/comments/interp ignored)
+# file_length:            warning 800 / error 1500
+# type_body_length:       warning 400 / error 800
+# function_body_length:   warning 60  / error 120
+# cyclomatic_complexity:  warning 15  / error 25
+# nesting:                type_level 2, function_level 3
+# identifier_name:        min 2 / max 60 (warn) / 80 (err); excluded id,x,y,z,r,g,b,a,dx,dy
+
+# Starter disabled set. Keep alphabetised. Revisit per the note at top.
+disabled_rules:
+  - colon
+  - comma
+  - control_statement
+  - cyclomatic_complexity
+  - file_length
+  - for_where
+  - function_body_length
+  - function_parameter_count
+  - identifier_name
+  - implicit_optional_initialization
+  - large_tuple
+  - line_length
+  - multiple_closures_with_trailing_closure
+  - nesting
+  - opening_brace
+  - orphaned_doc_comment
+  - redundant_discardable_let
+  - redundant_string_enum_value
+  - statement_position
+  - todo
+  - trailing_comma
+  - type_body_length
+  - type_name
+  - vertical_whitespace
