@@ -34,9 +34,15 @@ struct SplashCodeHighlighterTests {
                 .map { $0.cgColor }
         )
         #expect(colors.count <= 1)
-        let hasMonospaced = attributed.runs.contains { run in
-            guard let font = run.appKit.font else { return false }
-            return font.fontDescriptor.symbolicTraits.contains(.monoSpace)
+        let nsAttributed = NSAttributedString(attributed)
+        var hasMonospaced = false
+        nsAttributed.enumerateAttribute(.font, in: NSRange(location: 0, length: nsAttributed.length)) { value, _, stop in
+            if let font = value as? NSFont,
+                font.fontDescriptor.symbolicTraits.contains(.monoSpace)
+            {
+                hasMonospaced = true
+                stop.pointee = true
+            }
         }
         #expect(hasMonospaced)
     }
