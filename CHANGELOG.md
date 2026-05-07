@@ -9,6 +9,8 @@ project adheres to
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-05-07
+
 ### Added
 
 - **swift-markdown 0.7.3** (`apple/swift-markdown`, Apache-2.0) for
