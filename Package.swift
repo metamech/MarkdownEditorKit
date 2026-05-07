@@ -9,5 +9,9 @@ let package = Package(
     ],
     targets: [
         .target(name: "MarkdownEditorKit"),
+        .testTarget(
+            name: "MarkdownEditorKitTests",
+            dependencies: ["MarkdownEditorKit"]
+        ),
     ]
 )
