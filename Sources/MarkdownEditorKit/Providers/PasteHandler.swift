@@ -1,5 +1,17 @@
 import Foundation
 
+/// Canonical inline placeholder for image pastes.
+///
+/// ADR-023 specifies the image-paste UX (placeholder + open-browser affordance)
+/// but does not define the placeholder markdown. This constant is the
+/// canonical value the package inserts when no host-supplied text is provided.
+/// Hosts may use it verbatim or substitute their own string via
+/// `PasteResolution.insert`.
+public enum ImagePastePlaceholder {
+    /// Default markdown placeholder inserted on image paste.
+    public static let markdown = "![Uploading image…](upload-pending)"
+}
+
 /// Outcome returned by ``PasteHandler/handleImagePaste(_:)``.
 public enum PasteResolution: Sendable {
     /// Replace the paste site with `text` (e.g. a Markdown image link or placeholder).

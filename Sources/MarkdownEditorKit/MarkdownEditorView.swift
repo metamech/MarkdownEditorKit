@@ -193,6 +193,7 @@ public struct MarkdownEditorView: View {
             .mentionProvider(InMemoryMentionProvider(suggestions: mentions))
             .issueProvider(InMemoryIssueProvider(suggestions: issues))
             .emojiProvider(InMemoryEmojiProvider(suggestions: emojis))
+            .pasteHandler(InMemoryPasteHandler())
     }
     .frame(width: 800, height: 500)
 }
