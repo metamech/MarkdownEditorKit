@@ -193,4 +193,56 @@ struct StubProviderTests {
         let results = provider.search(prefix: "thumbsupextra")
         #expect(results.isEmpty)
     }
+
+    // MARK: - InMemoryPasteHandler
+
+    @Test("InMemoryPasteHandler returns insert(ImagePastePlaceholder.markdown) for non-empty data")
+    func pasteHandlerReturnsInsertResolution() async {
+        let handler = InMemoryPasteHandler()
+        let data = Data([0xFF, 0xD8, 0xFF])  // minimal JPEG header bytes
+        let resolution = await handler.handleImagePaste(data)
+        if case .insert(let text) = resolution {
+            #expect(text == ImagePastePlaceholder.markdown)
+        } else {
+            #expect(Bool(false), "Expected .insert resolution, got \(resolution)")
+        }
+    }
+
+    @Test("InMemoryPasteHandler records exact bytes passed in")
+    func pasteHandlerRecordsExactBytes() async {
+        let handler = InMemoryPasteHandler()
+        let data = Data([0x89, 0x50, 0x4E, 0x47])  // PNG magic bytes
+        _ = await handler.handleImagePaste(data)
+        let received = await handler.receivedData
+        #expect(received.count == 1)
+        #expect(received[0] == data)
+    }
+
+    @Test("InMemoryPasteHandler accumulates multiple calls in order")
+    func pasteHandlerAccumulatesInOrder() async {
+        let handler = InMemoryPasteHandler()
+        let first = Data([0x01])
+        let second = Data([0x02])
+        let third = Data([0x03])
+        _ = await handler.handleImagePaste(first)
+        _ = await handler.handleImagePaste(second)
+        _ = await handler.handleImagePaste(third)
+        let received = await handler.receivedData
+        #expect(received.count == 3)
+        #expect(received[0] == first)
+        #expect(received[1] == second)
+        #expect(received[2] == third)
+    }
+
+    @Test("ImagePastePlaceholder.markdown regression-lock: equals expected literal")
+    func imagePastePlaceholderMarkdownValue() {
+        // This test is deliberately a regression lock. If the constant changes,
+        // update this test consciously and also update any host that depends on the value.
+        #expect(ImagePastePlaceholder.markdown == "![Uploading image…](upload-pending)")
+    }
+
+    @Test("ImagePastePlaceholder.markdown is non-empty")
+    func imagePastePlaceholderMarkdownIsNonEmpty() {
+        #expect(!ImagePastePlaceholder.markdown.isEmpty)
+    }
 }

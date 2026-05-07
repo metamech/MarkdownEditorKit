@@ -28,21 +28,24 @@ final class MarkdownNSTextView: NSTextView {
             NSPasteboard.PasteboardType(rawValue: "public.jpeg"),
         ]
 
-        if let handler = imagePasteHandler,
-            let type = imageTypes.first(where: { pasteboard.data(forType: $0) != nil }),
+        if let type = imageTypes.first(where: { pasteboard.data(forType: $0) != nil }),
             let data = pasteboard.data(forType: type)
         {
-            Task { @MainActor [weak self] in
-                guard let self else { return }
-                let resolution = await handler(data)
-                switch resolution {
-                case .insert(let text):
-                    self.insertText(text, replacementRange: self.selectedRange())
-                case .handled:
-                    break  // Handler took full responsibility.
-                case .cancel:
-                    break  // Silently ignore.
+            if let handler = imagePasteHandler {
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    let resolution = await handler(data)
+                    switch resolution {
+                    case .insert(let text):
+                        self.insertText(text, replacementRange: self.selectedRange())
+                    case .handled:
+                        break  // Handler took full responsibility.
+                    case .cancel:
+                        break  // Silently ignore.
+                    }
                 }
+            } else {
+                insertText(ImagePastePlaceholder.markdown, replacementRange: selectedRange())
             }
             return
         }
